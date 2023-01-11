@@ -1,6 +1,7 @@
 package com.hmdp.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -17,6 +18,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpSession;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -82,11 +84,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //需要隐藏敏感信息，仅保存必要信息至session
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
         //User对象转为Hash存储,将user转为map,以便使用puAll()
-        Map<String, Object> userMap = BeanUtil.beanToMap(userDTO);
+        // id为long，转换为map会有问题，需要手动或使用工具类将long改为string
+        Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(),
+                CopyOptions.create().
+                        setIgnoreNullValue(true).
+                        setFieldValueEditor((fieldName, fieldValue) -> fieldValue.toString()));
         //保存用户信息到redis
         String tokenUser = LOGIN_USER_KEY+token;
         stringRedisTemplate.opsForHash().putAll(tokenUser, userMap);
-        stringRedisTemplate.expire(tokenUser, LOGIN_USER_TTL, TimeUnit.MICROSECONDS);
+        stringRedisTemplate.expire(tokenUser, LOGIN_USER_TTL, TimeUnit.MINUTES);
 
         //返回token
         return Result.ok(token);
