@@ -12,6 +12,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static com.hmdp.utils.RedisConstants.CACHE_SHOP_TTL;
 
 /**
  * <p>
@@ -49,6 +52,7 @@ public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType> i
         // 将结果转为Json存入redis
         String value = JSONUtil.toJsonStr(typeList);
         stringRedisTemplate.opsForValue().set(key, value);
+        stringRedisTemplate.expire(key, CACHE_SHOP_TTL, TimeUnit.MINUTES);
         return Result.ok(typeList);
     }
 }
