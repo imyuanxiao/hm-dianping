@@ -62,8 +62,8 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         /*解决缓存击穿（1个热点key）-逻辑过期
          * 此类数据需要提前存进去，例如热点数据，若查询不存在，即不是热点数据
          * */
-        Shop shop2 = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, LOCK_SHOP_KEY, id, Shop.class,
-                this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
+//        Shop shop2 = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, LOCK_SHOP_KEY, id, Shop.class,
+//                this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
 
         if(shop == null){
             return Result.ok("商店不存在");
