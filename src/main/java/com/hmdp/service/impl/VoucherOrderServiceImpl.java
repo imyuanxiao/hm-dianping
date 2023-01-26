@@ -9,6 +9,7 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIDMaker;
 import com.hmdp.utils.UserHolder;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedisIDMaker redisIDMaker;
 
     @Override
-    @Transactional
     public Result seckillVoucher(Long voucherId) {
 
         //查询优惠券信息
@@ -51,6 +51,28 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if(voucher.getStock() <= 0){
             return Result.fail("库存不足");
         }
+        /*在方法外加锁，锁对象为用户id,如果用方法锁，实际为this锁，是所有用户共享的锁*/
+        Long userId = UserHolder.getUser().getId();
+        synchronized(userId.toString().intern()){
+            /*事务处理的是代理对象，此处用的this是非代理对象，无法启用事务
+            * 需要获取此处实现方法的接口的代理对象
+            * */
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        }
+    }
+
+    @Transactional
+    public Result createVoucherOrder(Long voucherId) {
+        /*如果在方法内加锁，仍然可能存在单个用户并发问题，可能会调用多个本方法*/
+        //判断是否一人一单
+        //通过intern()从常量池中找字符串，避免每次锁的字符串对象都不一样
+        Long userId = UserHolder.getUser().getId();
+        int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+        if(count > 0){
+            return Result.fail("超出可购买上限");
+        }
+
         //减库存，添加乐观锁解决负数库存的问题
         boolean success = seckillVoucherService.update().setSql("stock = stock - 1").
                 eq("voucher_id", voucherId).gt("stock", 0).update();
